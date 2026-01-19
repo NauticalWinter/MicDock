@@ -1,0 +1,16 @@
+{
+  "name": "church-production-dashboard",
+  "version": "2.1.0",
+  "private": true,
+  "dependencies": {
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "lucide-react": "^0.562.0",
+    "serve": "^14.2.4"
+  },
+  "scripts": {
+    "start": "serve -s . -l 3000",
+    "dev": "npx vite",
+    "build": "npx vite build"
+  }
+}

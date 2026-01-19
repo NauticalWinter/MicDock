@@ -1,0 +1,5 @@
+{
+  "name": "Church Production Mic & Monitor Dashboard (Notes Version)",
+  "description": "An ultrawide dashboard designed for church production teams to automatically sync Planning Center assignments with Shure mic and monitor hardware slots.",
+  "requestFramePermissions": []
+}
