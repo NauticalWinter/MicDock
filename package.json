@@ -9,7 +9,7 @@
     "serve": "^14.2.4"
   },
   "scripts": {
-    "start": "serve -s . -l 3000",
+    "start": "npx serve -s dist -l 3000",
     "dev": "npx vite",
     "build": "npx vite build"
   }
