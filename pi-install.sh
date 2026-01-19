@@ -1,66 +1,54 @@
 #!/bin/bash
 
-# Church Production Dashboard - Ultra-Resilient Pi Installer
+# Church Production Dashboard - Robust Pi Installer
+# Exit immediately if a command exits with a non-zero status.
+set -e
+
 echo "🚀 Starting Production Dashboard Installation..."
 
-# 1. Permission Fix for NPM (Resolves EACCES)
-echo "🔧 Fixing folder permissions..."
-sudo chown -R $(whoami) ~/.npm
-sudo chown -R $(whoami) $(pwd)
+# 1. Fix NPM Global Prefix & Permissions (Resolves EACCES)
+echo "🔧 Fixing NPM permissions and local configuration..."
+# Reset any global prefix that might be pointing to /usr/lib
+npm config delete prefix || true
+npm config set prefix /home/$(whoami)/.npm-global || true
+mkdir -p /home/$(whoami)/.npm-global
+
+# Ensure ownership of the project and npm cache
+sudo chown -R $(whoami):$(whoami) $(pwd)
+sudo chown -R $(whoami):$(whoami) ~/.npm || true
 
 # 2. Update Package Lists
-echo "📦 Updating package lists (this may take a moment)..."
+echo "📦 Updating package lists..."
 sudo apt-get update -y
 
-# 3. Detect and Install Browser
-echo "🔍 Searching for available browser packages..."
-BROWSER_PKG=""
-if apt-cache show chromium-browser > /dev/null 2>&1; then
-    BROWSER_PKG="chromium-browser"
-elif apt-cache show chromium > /dev/null 2>&1; then
-    BROWSER_PKG="chromium"
-elif apt-cache show firefox-esr > /dev/null 2>&1; then
-    BROWSER_PKG="firefox-esr"
-fi
-
-if [ -z "$BROWSER_PKG" ]; then
-    echo "❌ ERROR: No supported browser found in repositories."
-    echo "Trying one last 'blind' install of chromium..."
-    sudo apt-get install -y chromium || exit 1
-    BROWSER_PKG="chromium"
-else
-    echo "✅ Found browser package: $BROWSER_PKG. Installing..."
-    sudo apt-get install -y $BROWSER_PKG
-fi
-
-# Determine the binary name for the autostart config
-if [ "$BROWSER_PKG" == "firefox-esr" ]; then
-    BROWSER_BIN="firefox-esr"
-else
-    # Chromium often uses 'chromium-browser' or 'chromium' as the command
-    if command -v chromium-browser > /dev/null 2>&1; then
-        BROWSER_BIN="chromium-browser"
-    else
-        BROWSER_BIN="chromium"
-    fi
-fi
-
-# 4. Install Core System Dependencies
+# 3. Install Core System Dependencies & Browser
+# Most modern Pi OS versions use 'chromium', not 'chromium-browser'
 echo "📦 Installing system dependencies..."
-sudo apt-get install -y nodejs npm xserver-xorg x11-xserver-utils xinit openbox git
+sudo apt-get install -y nodejs npm xserver-xorg x11-xserver-utils xinit openbox git chromium
 
-# 5. Application Setup
+# Identify the browser command
+if command -v chromium > /dev/null 2>&1; then
+    BROWSER_BIN="chromium"
+elif command -v chromium-browser > /dev/null 2>&1; then
+    BROWSER_BIN="chromium-browser"
+else
+    echo "❌ ERROR: Chromium browser not found."
+    exit 1
+fi
+
+# 4. Application Setup
 APP_DIR=$(pwd)
-echo "📂 Setting up in: $APP_DIR"
+echo "📂 Working directory: $APP_DIR"
 
-# 6. Build the App
-echo "🔨 Installing Node dependencies (Local only)..."
+# 5. Build the App
+echo "🔨 Installing Node dependencies..."
+# We use --no-save to avoid touching system files if environment is unstable
 npm install --no-fund --no-audit
 
-echo "🔨 Building the dashboard..."
+echo "🔨 Building the production dashboard..."
 npm run build
 
-# 7. Configure Kiosk Mode (Openbox)
+# 6. Configure Kiosk Mode (Openbox)
 echo "🖥️ Configuring Kiosk mode..."
 mkdir -p ~/.config/openbox
 cat <<EOF > ~/.config/openbox/autostart
@@ -69,22 +57,18 @@ xset s off
 xset s noblank
 xset -dpms
 
-# Start the dashboard server using the local npx serve
+# Start the dashboard server using the LOCAL binary to avoid permission issues
 cd $APP_DIR
-npx serve -s dist -l 3000 &
+./node_modules/.bin/serve -s dist -l 3000 &
 
 # Wait for server to be ready
-sleep 8
+sleep 10
 
 # Launch Browser in Kiosk Mode
-if [ "$BROWSER_BIN" == "firefox-esr" ]; then
-    $BROWSER_BIN --kiosk http://localhost:3000
-else
-    $BROWSER_BIN --noerrdialogs --disable-infobars --kiosk http://localhost:3000 --disable-restore-session-state --no-first-run
-fi
+$BROWSER_BIN --noerrdialogs --disable-infobars --kiosk http://localhost:3000 --disable-restore-session-state --no-first-run
 EOF
 
-# 8. Setup Auto-Launch on Boot (X-Server)
+# 7. Setup Auto-Launch on Boot (X-Server)
 echo "⚙️ Setting up auto-start via .bash_profile..."
 if ! grep -q "exec startx" ~/.bash_profile; then
 cat <<EOF >> ~/.bash_profile
@@ -96,12 +80,11 @@ fi
 EOF
 fi
 
-# 9. Success
+# 8. Success
 echo "-------------------------------------------------------"
-echo "✅ INSTALLATION COMPLETE"
+echo "✅ INSTALLATION SUCCESSFUL"
 echo "-------------------------------------------------------"
-echo "Browser used: $BROWSER_PKG"
-echo "Binary command: $BROWSER_BIN"
+echo "The dashboard will now launch automatically on boot."
 echo "-------------------------------------------------------"
 echo "Rebooting in 5 seconds..."
 sleep 5
